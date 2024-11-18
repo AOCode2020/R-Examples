@@ -1,0 +1,51 @@
+# Case Study 01 - draw a line chart of weekly four-hour compliance
+
+#Step 0 - load the packages we'll need for this case study
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(lubridate)
+
+#Step 1 - import the data
+dataframe_01 <- read_xlsx("data/01_ed_data.xlsx")
+
+#Step 2 - create a length of stay variable (los_mins)
+dataframe_01a <-
+  dataframe_01 %>% # the pipe
+  mutate(los_mins = as.numeric((departure_date_time - arrival_date_time)/60))
+
+
+#Step 3 - Create a binary breach variable
+dataframe_01b <- 
+  dataframe_01a |> 
+  mutate(breach = if_else(los_mins > 240, "breach", "non_breach"))
+
+#Step 4 - Create an arrival_week variable
+dataframe_01c <-
+  dataframe_01b |> 
+  mutate(arrival_week = floor_date(arrival_date_time, "weeks", 1))
+
+#Step 5 - Create a summary table by week
+dataframe_01d <- 
+  dataframe_01c |> 
+  group_by(arrival_week) |> 
+  summarise(non_breaches = sum(if_else(breach == "non_breach",1,0)), 
+            breaches = sum(if_else( breach == "breach", 1,0)),
+                               
+            attendances = n(),
+            compliance = non_breaches / attendances,
+            target = 0.95)
+
+#Step 6 - draw a line chart of weekly compliance
+dataframe_01d |> 
+  ggplot() +
+  geom_line(aes(x = arrival_week, y = compliance)) +
+  scale_y_continuous(limits = c(0, 1),
+                     breaks = seq(0, 1, 0.2),
+                     labels = scales::percent) +
+  geom_line(aes(x = arrival_week, y = target))
+
+#?floor_date
+
+
