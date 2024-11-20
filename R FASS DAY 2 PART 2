@@ -1,0 +1,66 @@
+#Case Study No. 3 - pareto chart and histograms
+
+#Step 0 - load the packages
+library(tidyverse)
+library(readxl)
+
+#Step 1 - import the data
+dataframe_03 <-
+  read_xlsx("data/01_ed_data.xlsx")
+df_03_ward_02_snapshots <-
+  read_xlsx("data/03_ward_02_fullness_snapshots.xlsx")
+
+#Step 2 - restrict the data to just those ED attendances that resulted in admission
+dataframe_03a <-
+  dataframe_03 |> 
+  # drops a function variable, 
+  drop_na(adm_ward)
+  #filter(complete.cases(adm_ward))
+
+#remove particular data frame
+#remove(dataframe_03a)
+
+#Step 3 - create a summary table of admissions by ward
+dataframe_03b <- 
+  dataframe_03a |> 
+  group_by(adm_ward) |> 
+  summarise(no_of_admissions = n()) |> 
+  arrange(no_of_admissions) |> 
+  arrange(desc(no_of_admissions)) |> 
+  filter(no_of_admissions > 100)
+
+#Step 4 - create a bar chart of this summary table
+dataframe_03b |> 
+  ggplot() + 
+  geom_col(aes(x = reorder(adm_ward,no_of_admissions),
+               y = no_of_admissions)) +
+  #changes orientation of the graphs axis
+          coord_flip()
+
+#Step 5 - create a summary table that has daily mean AMU fullness values
+
+df_03_summary_364 <-
+  df_03_ward_02_snapshots |>
+  mutate(snapshot_date = floor_date(snapshot_date_time, "days")) |>
+  group_by(snapshot_date) |>
+  summarize(mean_fullness = mean(no_of_occupied_beds))
+
+#Step 6 - append an H1, H2 variable depending on the date
+
+df_03_summary_364_halves <-
+  df_03_summary_364 |>
+  mutate(year_half = case_when(snapshot_date <= '2015-03-29' ~ "H1",
+                               snapshot_date > '2015-03-29' ~ "H2"))
+
+#Step 7 - create a facet grid of histograms
+df_03_summary_364_halves |> 
+  ggplot() +
+  geom_histogram(aes(x = mean_fullness),
+                 colour = "black", #colour is the border not the col itself
+                 fill ="blue") +
+  facet_wrap(~year_half,ncol =1)
+
+
+  
+  
+  
