@@ -1,0 +1,53 @@
+#Case Study 2 - create a scatterplot
+
+#Step 0 - load the packages
+library(tidyverse)
+library(readxl)
+
+#Step 1 - import the data
+dataframe_01 <-
+  read_xlsx("data/01_ed_data.xlsx")
+dataframe_02 <-
+  read_xlsx("data/02_ed_fullness_snapshots.xlsx")
+
+#Step 2 - create a date variable
+dataframe_02a <-
+  dataframe_02 |> 
+  mutate(snapshot_date = floor_date(snapshot_date_time, "days")) |> 
+  select(snapshot_date_time,
+         snapshot_date,
+         no_of_patients_in_ed)
+
+#Step 3 - create a summary table of 364 ED fullness snapshot averages
+dataframe_02b <-
+  dataframe_02a |> 
+  group_by(snapshot_date) |> 
+  summarize(mean_ed_fullness = mean(no_of_patients_in_ed))
+
+#Step 4 - create a daily compliance summary table
+dataframe_01a <-
+  dataframe_01 |> 
+  mutate(arrival_date = floor_date(arrival_date_time,"days")) |> 
+  mutate(los_mins = as.numeric((departure_date_time - arrival_date_time)/60)) |>
+          mutate(breach = if_else(los_mins > 240, "breach", "non_breach")) |>
+          group_by(arrival_date) |> 
+          summarize(non_breaches = sum(if_else(breach =="non_breach", 1, 0)),
+                    attendances = n(),
+                    compliance_numeric = non_breaches / attendances) |> 
+          select(arrival_date, compliance_numeric)
+
+#Step 5 - join the two dataframes together
+dataframe_joined <-
+  dataframe_02b |> 
+  left_join(dataframe_01a,
+            join_by(snapshot_date == arrival_date)) |> 
+  select(snapshot_date, compliance_numeric, mean_ed_fullness)
+
+#Step 6 - draw a scatterplot
+dataframe_joined |> 
+  ggplot() +
+  geom_point(aes(x = mean_ed_fullness, y = compliance_numeric)) +
+  geom_point(aes(x = mean_ed_fullness, y = compliance_numeric)),
+            method = "lm", se = FALSE, colour = "red", linewidth = 0.3)
+?geom_smooth()
+
